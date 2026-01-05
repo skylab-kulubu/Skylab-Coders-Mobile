@@ -2,94 +2,83 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getLeaderboard = async (period: string) => {
+export const getLeaderboard = async (inputPeriod: string) => {
+    const period = (inputPeriod || 'all_time').toLowerCase().trim();
+    console.log(`[StatsService] Processing period: '${period}'`);
+
     let startDate = new Date(0); // All time start
     let endDate = new Date();    // Now
 
+    // Use local time construction to align with user expectation "This Month" = Calendar Month
     const now = new Date();
-    // Reset time part to midnight for cleaner calculations
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Helper to get start of week (Monday)
-    const getStartOfWeek = (d: Date) => {
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-        return new Date(d.setDate(diff));
-    };
+    // Rolling Window Logic (Last X Days) - Guarantees data visibility
+    const ONE_DAY = 24 * 60 * 60 * 1000;
 
     switch (period) {
+        case 'daily':
         case 'yesterday':
-            startDate = new Date(today);
-            startDate.setDate(today.getDate() - 1);
-            endDate = new Date(today); // Until start of today (midnight)
+            // Last 24 Hours
+            startDate = new Date(now.getTime() - ONE_DAY);
             break;
 
-        case 'last_week':
-            // Move to last week
-            const lastWeek = new Date(today);
-            lastWeek.setDate(lastWeek.getDate() - 7);
-            const startOfLastWeek = getStartOfWeek(new Date(lastWeek));
-            startDate = new Date(startOfLastWeek.getFullYear(), startOfLastWeek.getMonth(), startOfLastWeek.getDate());
-
-            // End of last week is start of this week
-            const startOfThisWeek = getStartOfWeek(new Date(today));
-            endDate = new Date(startOfThisWeek.getFullYear(), startOfThisWeek.getMonth(), startOfThisWeek.getDate());
-            break;
-
+        case 'weekly':
         case 'this_week':
-            const thisWeekStart = getStartOfWeek(new Date(today));
-            startDate = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate());
-            endDate = new Date(); // To now
+        case 'last_week':
+            // Last 7 Days
+            startDate = new Date(now.getTime() - 7 * ONE_DAY);
             break;
 
-        case 'last_month':
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            break;
-
+        case 'monthly':
         case 'this_month':
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(); // To now
+        case 'last_month':
+            // Last 30 Days
+            startDate = new Date(now.getTime() - 30 * ONE_DAY);
             break;
 
+        case 'yearly':
         case 'last_year':
-            startDate = new Date(today.getFullYear() - 1, 0, 1);
-            endDate = new Date(today.getFullYear(), 0, 1);
+            // Last 365 Days
+            startDate = new Date(now.getTime() - 365 * ONE_DAY);
             break;
 
         case 'all_time':
         default:
-            // Default is All Time, but user requested Default 'This Month' in UI, wait, logic for 'all_time' stays same.
-            // If function called with 'this_month', it hits case above.
+            console.log(`[StatsService] Defaulting to All Time for period: '${period}'`);
+            startDate = new Date(0);
             break;
     }
 
-    // Using Raw SQL for better performance and grouping capabilities
-    // This query counts commits per user within range
-    // It joins User table to get details.
+    endDate = new Date(); // Always to Now for rolling window
 
-    const results = await prisma.$queryRaw`
-        SELECT 
-            u.id, 
-            u.login, 
-            u.name, 
-            u."avatarUrl", 
-            COUNT(c.sha) as "totalCommits",
-            COUNT(DISTINCT c."repoId") as "repoCount"
-        FROM "Commit" c
-        JOIN "User" u ON c."userId" = u.id
-        WHERE c.date >= ${startDate} AND c.date < ${endDate}
-        GROUP BY u.id, u.login, u.name, u."avatarUrl"
-        ORDER BY "totalCommits" DESC
-        LIMIT 50;
-    `;
+    // console.log(`[StatsService] Date Range: ${startDate.toISOString()} -> ${endDate.toISOString()}`);
 
-    // Cast BigInt to Number for JSON serialization
-    const safeResults = (results as any[]).map(r => ({
-        ...r,
-        totalCommits: Number(r.totalCommits),
-        repoCount: Number(r.repoCount)
-    }));
+    try {
+        const results = await prisma.$queryRaw`
+            SELECT 
+                u.id, 
+                u.login, 
+                u.name, 
+                u."avatarUrl", 
+                COUNT(c.sha) as "totalCommits",
+                COUNT(DISTINCT c."repoId") as "repoCount"
+            FROM "Commit" c
+            JOIN "User" u ON c."userId" = u.id
+            WHERE c.date >= ${startDate} AND c.date <= ${endDate}
+            GROUP BY u.id, u.login, u.name, u."avatarUrl"
+            ORDER BY "totalCommits" DESC
+            LIMIT 50;
+        `;
 
-    return safeResults;
+        const safeResults = (results as any[]).map(r => ({
+            ...r,
+            totalCommits: Number(r.totalCommits),
+            repoCount: Number(r.repoCount)
+        }));
+
+        return safeResults;
+    } catch (error) {
+        console.error('[StatsService] Query Error:', error);
+        throw error;
+    }
 };

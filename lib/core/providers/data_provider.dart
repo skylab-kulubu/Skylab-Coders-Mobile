@@ -23,7 +23,7 @@ class DataProvider with ChangeNotifier {
   String? get error => _error;
   String get currentPeriod => _currentPeriod;
 
-  Future<void> fetchData({String period = 'this_month'}) async {
+  Future<void> fetchData({String period = 'monthly'}) async {
     _currentPeriod = period;
     _isLoading = true;
     _error = null;

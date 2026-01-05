@@ -18,12 +18,15 @@ app.get('/', (req, res) => {
 
 // Stats Endpoints
 app.get('/stats', async (req, res) => {
-  const { period } = req.query; // 'daily', 'weekly', 'monthly', 'all_time'
+  const period = String(req.query.period || 'all_time').trim();
+  console.log(`[API] Fetching stats for period: '${period}'`);
+
   // TODO: Fetch from CacheLog or compute
   try {
-    const data = await getLeaderboard(period as string || 'monthly');
+    const data = await getLeaderboard(period);
     res.json(data);
   } catch (error) {
+    console.error('Stats error:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });

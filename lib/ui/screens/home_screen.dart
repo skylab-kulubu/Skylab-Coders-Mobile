@@ -19,12 +19,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final Map<String, GlobalKey> _filterKeys = {
-    'yesterday': GlobalKey(),
-    'this_week': GlobalKey(),
-    'last_week': GlobalKey(),
-    'this_month': GlobalKey(),
-    'last_month': GlobalKey(),
-    'last_year': GlobalKey(),
+    'weekly': GlobalKey(),
+    'monthly': GlobalKey(),
+    'yearly': GlobalKey(),
     'all_time': GlobalKey(),
   };
 
@@ -33,7 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<DataProvider>();
-      provider.fetchData();
+      // provider.currentPeriod might be 'this_month' from default, we need to ensure it matches available keys?
+      // We will handle data provider update separately or force a fetch here if needed.
+      // But assuming DataProvider defaults to 'monthly', we are good.
+      if (provider.currentPeriod == 'this_month') {
+         provider.fetchData(period: 'monthly');
+      } else {
+        provider.fetchData();
+      }
       _scrollToFilter(provider.currentPeriod);
     });
   }
@@ -176,12 +180,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildFilterChip(context, provider, 'Dün', 'yesterday'),
-                      _buildFilterChip(context, provider, 'Bu Hafta', 'this_week'),
-                      _buildFilterChip(context, provider, 'Geçen Hafta', 'last_week'),
-                      _buildFilterChip(context, provider, 'Bu Ay', 'this_month'),
-                      _buildFilterChip(context, provider, 'Geçen Ay', 'last_month'),
-                      _buildFilterChip(context, provider, 'Geçen Yıl', 'last_year'),
+                      _buildFilterChip(context, provider, 'Son 7 Gün', 'weekly'),
+                      _buildFilterChip(context, provider, 'Son 30 Gün', 'monthly'),
+                      _buildFilterChip(context, provider, 'Son 365 Gün', 'yearly'),
                       _buildFilterChip(context, provider, 'Tüm Zamanlar', 'all_time'),
                     ],
                   ),
@@ -432,18 +433,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getWinnerTitle(String period) {
     switch (period) {
-      case 'yesterday':
-        return '🚀 Dünün Yıldızı';
-      case 'this_week':
-        return '🔥 Bu Haftanın Lideri';
-      case 'last_week':
-        return '🌟 Geçen Haftanın Lideri';
-      case 'this_month':
-        return '🏆 Bu Ayın En İyisi';
-      case 'last_month':
-        return '👑 Geçen Ayın Kralı';
-      case 'last_year':
-        return '💫 Geçen Yılın Efsanesi';
+      case 'weekly':
+        return '🔥 Haftanın Lideri';
+      case 'monthly':
+      case 'this_month': // Handle legacy default just in case
+        return '🏆 Ayın Lideri';
+      case 'yearly':
+        return '👑 Yılın Efsanesi';
       case 'all_time':
         return '♾️ Tüm Zamanların En İyisi';
       default:

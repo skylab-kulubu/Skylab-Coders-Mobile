@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/github_models.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  // Android emulator uses 10.0.2.2, iOS/Web/Docker uses localhost (if exposed)
-  // For Windows desktop app accessing Docker: localhost is fine.
-  static const String _baseUrl = 'http://localhost:3001';
+  // Base URL is now configured via AppConfig
+  static const String _baseUrl = AppConfig.apiUrl;
 
   Future<List<ContributorStat>> getStats(String period) async {
     try {

@@ -85,18 +85,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
     final provider = context.watch<DataProvider>();
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
-          children: [
+          children: const [
             Icon(LucideIcons.code2, color: AppColors.primary, size: 28),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text('SkyLab Coders'),
           ],
         ),
-        actions: [
+        actions: const [
           // Refresh button removed
         ],
       ),
@@ -345,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // _buildFilterChip is now defined above to capture state keys.
+
 
   Widget _buildWinnerCard(ContributorStat stat) {
     return Container(
